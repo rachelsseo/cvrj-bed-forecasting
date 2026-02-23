@@ -22,8 +22,10 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.lines import Line2D
 
-DATA_DIR = "../data/raw"
-CVRJ_FILE = "../data/processed/cvrj_dataset_v2.csv"
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_SCRIPT_DIR)
+DATA_DIR = os.path.join(_ROOT, "data", "raw")
+CVRJ_FILE = os.path.join(_ROOT, "data", "processed", "cvrj_dataset_v2.csv")
 
 
 def compute_daily_census_and_adp(df, max_date_cap=None):
@@ -143,38 +145,51 @@ def main():
     ax3.grid(True, alpha=0.5)
 
     plt.tight_layout()
-    out_path = 'visuals/eda_adp_calculation.png'
+    out_path = os.path.join(_ROOT, 'visuals', 'eda_adp_calculation.png')
     plt.savefig(out_path, dpi=150, bbox_inches='tight')
     print(f"Saved: {out_path}")
     plt.close()
 
-    # ---- Second figure: Full daily census + annual ADP on same plot (CVRJ only) ----
-    fig2, ax_left = plt.subplots(figsize=(12, 5))
-    ax_right = ax_left.twinx()
+    # ---- Second figure: Daily census (trimmed 2013–2025) + moving averages ----
+    start_cut = pd.Timestamp('2013-01-01')
+    end_cut = pd.Timestamp('2025-12-31')  # end before drop-off at 2026
+    full_daily = daily_census.loc[(daily_census.index >= start_cut) & (daily_census.index <= end_cut)]
 
-    full_daily = daily_census
-    ax_left.fill_between(full_daily.index, full_daily.values, alpha=0.4, color='steelblue')
-    ax_left.plot(full_daily.index, full_daily.values, color='steelblue', linewidth=0.6, label='Daily census')
-    ax_left.set_ylabel('Daily census (count)', color='steelblue')
-    ax_left.tick_params(axis='y', labelcolor='steelblue')
-    ax_left.set_ylim(0, None)
+    fig2, ax = plt.subplots(figsize=(12, 5))
+    ax.fill_between(full_daily.index, full_daily.values, alpha=0.3, color='steelblue')
+    ax.plot(full_daily.index, full_daily.values, color='steelblue', linewidth=0.6, label='Daily census', alpha=0.8)
 
-    annual_adp_plot = annual_adp.copy()
-    annual_adp_plot.index = annual_adp_plot.index - pd.offsets.MonthBegin(6)  # center bar in year
-    ax_right.bar(annual_adp_plot.index, annual_adp_plot.values, width=200, color='darkgreen', alpha=0.7, label='Annual ADP (mean of daily)')
-    ax_right.set_ylabel('Annual ADP', color='darkgreen')
-    ax_right.tick_params(axis='y', labelcolor='darkgreen')
+    # Moving averages: 365-day, 90-day, 30-day (centered for symmetry; use min_periods so we get values near edges)
+    ma365 = full_daily.rolling(window=365, min_periods=1, center=True).mean()
+    ma90 = full_daily.rolling(window=90, min_periods=1, center=True).mean()
+    ma30 = full_daily.rolling(window=30, min_periods=1, center=True).mean()
+    ax.plot(ma365.index, ma365.values, color='darkgreen', linewidth=2, label='365-day moving average')
+    #ax.plot(ma90.index, ma90.values, color='darkorange', linewidth=1.5, label='90-day moving average')
+    #ax.plot(ma30.index, ma30.values, color='purple', linewidth=1.2, label='30-day moving average')
 
-    ax_left.set_xlabel('Date')
-    ax_left.set_title('CVRJ Baseline: Daily census (blue) and annual ADP (green bars) from Book/Release dates in cvrj_dataset_v2.csv')
-    ax_left.legend(loc='upper left')
-    ax_right.legend(loc='upper right')
-    ax_left.grid(True, alpha=0.5)
+    ax.set_xlabel('Date', fontsize = 14)
+    ax.set_ylabel('Daily census (count)', fontsize = 14)
+    ax.set_title('Daily Census and Moving Average from De-Identified Booking Data', fontsize = 20)
+    ax.legend(loc='upper right', fontsize=11)
+    ax.set_ylim(0, None)
+    ax.grid(True, alpha=0.5)
+    #ax.text(0.02, 0.02, 'Recommendation: 365-day MA best for capacity planning (smooth trend).',
+    #        transform=ax.transAxes, fontsize=8, va='bottom', ha='left',
+    #        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.9))
     plt.tight_layout()
-    out_path2 = 'visuals/adp_daily_and_annual.png'
+    ax.margins(x=0)
+    out_path2 = os.path.join(_ROOT, 'visuals', 'adp_daily_and_annual.png')
     plt.savefig(out_path2, dpi=150, bbox_inches='tight')
     print(f"Saved: {out_path2}")
     plt.close()
+
+    # Recommendation: which moving average is best
+    print("\n--- Moving average recommendation ---")
+    print("365-day: Best for capacity planning. Smooths to roughly annual level; shows the underlying")
+    print("         trend without seasonal/noisy swings. Use this when comparing to annual ADP or capacity.")
+    print("90-day:  Good balance—responds to quarterly changes but still smooth. Useful for mid-term planning.")
+    print("30-day:  Most responsive; shows recent swings but is noisier. Use for operational 'what’s happening now'.")
+    print("Recommendation: Use the 365-day moving average when discussing bed need and capacity with stakeholders.")
 
     print("\nDone. ADP is computed from Book Date and Release Date (length of stay is implicit);")
     print("Culpeper ADP in the forecast script is currently hardcoded; this script also shows")
