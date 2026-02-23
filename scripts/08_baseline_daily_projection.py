@@ -6,8 +6,8 @@ import os
 import random
 
 # Define paths
-DATA_DIR = "cvrj-bed-forecasting/ForecastBedData"
-CVRJ_FILE = os.path.join(DATA_DIR, "cvrj_dataset_v2.csv")
+DATA_DIR = "../data/raw"
+CVRJ_FILE = "../data/processed/cvrj_dataset_v2.csv"
 
 def main():
     print("Loading CVRJ Data...")
@@ -209,7 +209,7 @@ def main():
     print(f"\nPlot saved to {out_img}")
     
     # Save the daily projection data
-    out_csv = 'baseline_projected_daily_adp.csv'
+    out_csv = '../data/outputs/baseline_projected_daily_adp.csv'
     final_daily_projection.to_frame(name='Projected_Daily_ADP').to_csv(out_csv)
     print(f"Daily projection data saved to {out_csv}")
     

@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import os
 
 # Define paths
-DATA_DIR = "cvrj-bed-forecasting/ForecastBedData"
-CVRJ_FILE = os.path.join(DATA_DIR, "cvrj_dataset_v2.csv")
+DATA_DIR = "../data/raw"
+CVRJ_FILE = "../data/processed/cvrj_dataset_v2.csv"
 
 def main():
     print("Loading CVRJ Data...")
@@ -263,7 +263,7 @@ def main():
     print(f"\nPlot saved to {out_img}")
     
     # Save the daily projection data
-    out_csv = 'projected_combined_adp.csv'
+    out_csv = '../data/outputs/projected_combined_adp.csv'
     res_df = pd.DataFrame({
         'CVRJ_Baseline_Noisy': projected_daily_base,
         'Total_Culpeper_Noisy': projected_daily_culp,

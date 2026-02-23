@@ -8,8 +8,8 @@ import glob
 import os
 
 # Define paths
-DATA_DIR = "cvrj-bed-forecasting/ForecastBedData"
-CVRJ_FILE = os.path.join(DATA_DIR, "cvrj_dataset_v2.csv")
+DATA_DIR = "../data/raw"
+CVRJ_FILE = "../data/processed/cvrj_dataset_v2.csv"
 
 # --- 1. Load and Process CVRJ Data ---
 print("Loading CVRJ Data...")
@@ -168,9 +168,9 @@ if not annual_culpeper_in_cvrj.empty and not culp_pop.empty:
         culpeper_in_cvrj_forecast, culp_fut_pop = fit_forecast(culp_clean, culp_pop, "Culpeper_In_CVRJ")
 
 # Save historical ADP series for capacity visualization (even if forecast fails)
-annual_cvrj_adp.to_csv('forecast_annual_cvrj_adp.csv', header=['ADP'])
+annual_cvrj_adp.to_csv('../data/outputs/forecast_annual_cvrj_adp.csv', header=['ADP'])
 if not annual_culpeper_in_cvrj.empty:
-    annual_culpeper_in_cvrj.to_csv('forecast_annual_culpeper_in_cvrj.csv', header=['ADP'])
+    annual_culpeper_in_cvrj.to_csv('../data/outputs/forecast_annual_culpeper_in_cvrj.csv', header=['ADP'])
 
 # --- 5. Analysis ---
 if cvrj_forecast is not None and culpeper_in_cvrj_forecast is not None:
@@ -188,7 +188,7 @@ if cvrj_forecast is not None and culpeper_in_cvrj_forecast is not None:
     
     print(res_df)
     
-    res_df.to_csv('forecast_results.csv')
+    res_df.to_csv('../data/outputs/forecast_results.csv')
     
     plt.figure(figsize=(10,6))
     plt.plot(res_df.index, res_df['Combined_Load'], label='Projected Combined Load', marker='o', linewidth=2)

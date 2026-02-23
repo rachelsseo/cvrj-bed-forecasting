@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-DATA_DIR = "cvrj-bed-forecasting/ForecastBedData"
+DATA_DIR = "../data/raw"
 
 # --- Load Culpeper ADP (Any Jail) ---
 culpeper_data = {

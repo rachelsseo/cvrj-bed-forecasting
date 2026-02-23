@@ -2,7 +2,7 @@
 import json
 import os
 
-NOTEBOOK_PATH = "cvrj-bed-forecasting/ForecastBedData/initial_model_draft.ipynb"
+NOTEBOOK_PATH = "02_initial_model_draft.ipynb"
 
 # The code to append (Cleaned version of run_forecast.py)
 CODE_TO_APPEND = r"""
@@ -14,14 +14,14 @@ import os
 
 # --- Configuration ---
 # Update paths to be relative to the notebook or absolute
-# Assuming notebook is in cvrj-bed-forecasting/ForecastBedData/
-DATA_DIR = "." 
-CVRJ_FILE = "cvrj_dataset_v2.csv" # In same dir as notebook usually or parent?
+# Assuming notebook is in scripts/
+DATA_DIR = "../data/raw" 
+CVRJ_FILE = "../data/processed/cvrj_dataset_v2.csv" 
 # Check specific file location:
 if not os.path.exists(CVRJ_FILE):
     # Try absolute path if relative fails, or parent
-    CVRJ_FILE = "../cvrj_dataset_v2.csv"
-    DATA_DIR = "."
+    CVRJ_FILE = "../data/processed/cvrj_dataset_v2.csv"
+    DATA_DIR = "../data/raw"
 
 print(f"Using CVRJ File: {CVRJ_FILE}")
 

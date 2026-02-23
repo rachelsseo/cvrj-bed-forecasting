@@ -1,7 +1,7 @@
 import pandas as pd
 
-folder_path = "/Users/jonaslee/Desktop/cvrj-bed-forecasting/cvrj_dataset_2012-25.csv"
-output_file = "cvrj_dataset_v2.csv"
+folder_path = "../data/raw/cvrj_dataset_2012-25.csv"
+output_file = "../data/processed/cvrj_dataset_v2.csv"
 
 df = pd.read_csv(folder_path)
 

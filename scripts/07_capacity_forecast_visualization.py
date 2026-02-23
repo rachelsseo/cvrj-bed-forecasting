@@ -13,9 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 MAX_CAPACITY = 660
-FORECAST_ADP_CSV = "forecast_annual_cvrj_adp.csv"
-FORECAST_RESULTS_CSV = "forecast_results.csv"
-CULPEPER_IN_CVRJ_CSV = "forecast_annual_culpeper_in_cvrj.csv"  # County 47 from cvrj_dataset_v2.csv
+FORECAST_ADP_CSV = "../data/outputs/forecast_annual_cvrj_adp.csv"
+FORECAST_RESULTS_CSV = "../data/outputs/forecast_results.csv"
+CULPEPER_IN_CVRJ_CSV = "../data/outputs/forecast_annual_culpeper_in_cvrj.csv"  # County 47 from cvrj_dataset_v2.csv
 FORECAST_START_YEAR = 2026
 
 

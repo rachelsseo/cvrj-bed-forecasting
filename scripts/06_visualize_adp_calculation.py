@@ -22,8 +22,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.lines import Line2D
 
-DATA_DIR = "cvrj-bed-forecasting/ForecastBedData"
-CVRJ_FILE = os.path.join(DATA_DIR, "cvrj_dataset_v2.csv")
+DATA_DIR = "../data/raw"
+CVRJ_FILE = "../data/processed/cvrj_dataset_v2.csv"
 
 
 def compute_daily_census_and_adp(df, max_date_cap=None):
