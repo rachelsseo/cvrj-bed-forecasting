@@ -199,5 +199,5 @@ if cvrj_forecast is not None and culpeper_in_cvrj_forecast is not None:
     plt.ylabel('Inmate Population')
     plt.legend()
     plt.grid(True)
-    plt.savefig('forecast_plot_revised.png')
-    print("\nPlot saved to forecast_plot_revised.png")
+    plt.savefig('visuals/forecast_plot_revised.png')
+    print("\nPlot saved to visuals/forecast_plot_revised.png")

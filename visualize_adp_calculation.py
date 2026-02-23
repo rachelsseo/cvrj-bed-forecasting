@@ -143,7 +143,7 @@ def main():
     ax3.grid(True, alpha=0.5)
 
     plt.tight_layout()
-    out_path = 'adp_calculation_visualization.png'
+    out_path = 'visuals/eda_adp_calculation.png'
     plt.savefig(out_path, dpi=150, bbox_inches='tight')
     print(f"Saved: {out_path}")
     plt.close()
@@ -171,7 +171,7 @@ def main():
     ax_right.legend(loc='upper right')
     ax_left.grid(True, alpha=0.5)
     plt.tight_layout()
-    out_path2 = 'adp_daily_and_annual.png'
+    out_path2 = 'visuals/adp_daily_and_annual.png'
     plt.savefig(out_path2, dpi=150, bbox_inches='tight')
     print(f"Saved: {out_path2}")
     plt.close()

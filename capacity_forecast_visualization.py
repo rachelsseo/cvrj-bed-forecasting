@@ -108,8 +108,8 @@ def main():
                   combined_historical, draw_forecast_marker=True)
     ax.set_title('CVRJ bed need: with vs without Culpeper County (max capacity = 660 beds)')
     plt.tight_layout()
-    plt.savefig('capacity_forecast_with_and_without_culpeper.png', dpi=150, bbox_inches='tight')
-    print("Saved: capacity_forecast_with_and_without_culpeper.png")
+    plt.savefig('visuals/capacity_forecast_with_and_without_culpeper.png', dpi=150, bbox_inches='tight')
+    print("Saved: visuals/capacity_forecast_with_and_without_culpeper.png")
     plt.close()
 
     # --- Figure 2: Same plot + methodology text ---
@@ -132,8 +132,8 @@ def main():
     ax2.text(0.98, 0.98, methodology, transform=ax2.transAxes, fontsize=7,
              va='top', ha='right', bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.95))
     plt.tight_layout()
-    plt.savefig('capacity_forecast_with_methodology.png', dpi=150, bbox_inches='tight')
-    print("Saved: capacity_forecast_with_methodology.png")
+    plt.savefig('visuals/capacity_forecast_with_methodology.png', dpi=150, bbox_inches='tight')
+    print("Saved: visuals/capacity_forecast_with_methodology.png")
     plt.close()
 
     print("\nDone. Red line = 660-bed capacity. Orange = CVRJ + Culpeper-in-CVRJ (from CSV); blue = CVRJ only.")

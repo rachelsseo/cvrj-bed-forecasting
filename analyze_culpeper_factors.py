@@ -72,5 +72,5 @@ ax2.tick_params(axis='y', labelcolor=color)
 
 plt.title(f'Culpeper: Jail ADP vs Population (Corr: {corr:.2f})')
 fig.tight_layout()  
-plt.savefig('culpeper_factors.png')
-print("Plot saved to culpeper_factors.png")
+plt.savefig('visuals/culpeper_adp_vs_population.png')
+print("Plot saved to visuals/culpeper_adp_vs_population.png")
