@@ -28,31 +28,22 @@ print(f"Total CVRJ rows: {len(df_cvrj)}")
 df_cvrj_baseline = df_cvrj[df_cvrj['County Code'] != 47]
 print(f"CVRJ Baseline (No Culpeper) rows: {len(df_cvrj_baseline)}")
 
-# Calculate Daily Census (ADP) for Baseline
-min_date = df_cvrj_baseline['Book Date'].min()
-max_date = df_cvrj_baseline['Release Date'].max()
+# Calculate Daily Census (ADP) for Baseline (vectorized)
+df_b = df_cvrj_baseline.dropna(subset=['Book Date']).copy()
+max_date = df_b['Release Date'].max()
 if pd.isnull(max_date) or max_date.year > 2030:
     max_date = pd.Timestamp('2025-12-31')
-
+min_date = df_b['Book Date'].min()
+df_b['Release Date'] = df_b['Release Date'].fillna(max_date)
+df_b['start_d'] = df_b['Book Date'].dt.normalize()
+df_b['end_d'] = df_b['Release Date'].dt.normalize() + pd.Timedelta(days=1)
+df_b = df_b[df_b['end_d'] > df_b['start_d']]
+enter = df_b[['start_d']].rename(columns={'start_d': 'Date'})
+enter['Change'] = 1
+leave = df_b[['end_d']].rename(columns={'end_d': 'Date'})
+leave['Change'] = -1
+evt_df = pd.concat([enter, leave], ignore_index=True)
 date_range = pd.date_range(start=min_date.normalize(), end=max_date.normalize(), freq='D')
-
-events = []
-for _, row in df_cvrj_baseline.iterrows():
-    start = row['Book Date']
-    end = row['Release Date']
-    
-    if pd.isnull(start): continue
-    if pd.isnull(end): end = max_date
-        
-    start_date = start.normalize()
-    end_date = end.normalize()
-    
-    if end_date < start_date: continue 
-        
-    events.append((start_date, 1))
-    events.append((end_date + pd.Timedelta(days=1), -1))
-
-evt_df = pd.DataFrame(events, columns=['Date', 'Change'])
 if not evt_df.empty:
     evt_df = evt_df.groupby('Date')['Change'].sum().sort_index()
     daily_census = evt_df.reindex(date_range, fill_value=0).cumsum()
@@ -60,9 +51,35 @@ else:
     daily_census = pd.Series(0, index=date_range)
 
 # Annual ADP Baseline
-annual_cvrj_adp = daily_census.resample('Y').mean()
+annual_cvrj_adp = daily_census.resample('YE').mean()
 print("CVRJ Baseline Annual ADP (Head):")
 print(annual_cvrj_adp.head())
+
+# --- 1b. Culpeper-in-CVRJ (County Code 47 only) from same CSV — realistic add-on to CVRJ
+# "Any jail" Culpeper (148.93, 185.75, ...) is total across CVRJ + RSW + Culpeper Jail; we need only CVRJ share.
+df_culp = df_cvrj[df_cvrj['County Code'] == 47].dropna(subset=['Book Date']).copy()
+if not df_culp.empty:
+    max_c = df_culp['Release Date'].max()
+    if pd.isnull(max_c) or max_c.year > 2030:
+        max_c = pd.Timestamp('2025-12-31')
+    min_c = df_culp['Book Date'].min()
+    df_culp['Release Date'] = df_culp['Release Date'].fillna(max_c)
+    df_culp['start_d'] = df_culp['Book Date'].dt.normalize()
+    df_culp['end_d'] = df_culp['Release Date'].dt.normalize() + pd.Timedelta(days=1)
+    df_culp = df_culp[df_culp['end_d'] > df_culp['start_d']]
+    enter_c = df_culp[['start_d']].rename(columns={'start_d': 'Date'})
+    enter_c['Change'] = 1
+    leave_c = df_culp[['end_d']].rename(columns={'end_d': 'Date'})
+    leave_c['Change'] = -1
+    evt_c = pd.concat([enter_c, leave_c], ignore_index=True)
+    date_range_c = pd.date_range(start=min_c.normalize(), end=max_c.normalize(), freq='D')
+    evt_c = evt_c.groupby('Date')['Change'].sum().sort_index()
+    daily_culp = evt_c.reindex(date_range_c, fill_value=0).cumsum()
+    annual_culpeper_in_cvrj = daily_culp.resample('YE').mean()
+else:
+    annual_culpeper_in_cvrj = pd.Series(dtype=float)
+print("Culpeper-in-CVRJ (County 47) Annual ADP (Head):")
+print(annual_culpeper_in_cvrj.head() if not annual_culpeper_in_cvrj.empty else "No data")
 
 # --- 2. Load Population Data (CVRJ Excl Culpeper) ---
 print("\nLoading Population Data...")
@@ -84,20 +101,7 @@ for county in counties:
 total_cvrj_pop = pd.DataFrame(pop_data).sum(axis=1)
 total_cvrj_pop.index = total_cvrj_pop.index + pd.offsets.YearEnd()
 
-# --- 3. Load Culpeper Data (Total 'Any Jail' Demand) ---
-print("\nLoading Culpeper Data (Any Jail)...")
-culpeper_data = {
-    '2020': 148.93,
-    '2021': 185.75,
-    '2022': 210.82,
-    '2023': 200.24,
-    '2024': 312.33,
-    '2025': 227.81
-}
-culpeper_adp = pd.Series(culpeper_data)
-culpeper_adp.index = pd.to_datetime(culpeper_adp.index, format='%Y') + pd.offsets.YearEnd()
-
-# Culpeper Census
+# --- 3. Culpeper Census (for forecasting Culpeper-in-CVRJ)
 culp_pop_file = os.path.join(DATA_DIR, "CulpeperPopulation.csv")
 try:
     temp_culp = pd.read_csv(culp_pop_file, header=4)
@@ -149,36 +153,47 @@ if not total_cvrj_pop.empty:
     
 cvrj_forecast, cvrj_fut_pop = fit_forecast(annual_cvrj_adp, total_cvrj_pop, "CVRJ_Baseline")
 
-# Run Culpeper Model (Total Demand)
+# Run Culpeper-in-CVRJ Model (County 47 from CSV — realistic CVRJ add-on)
 if not culp_pop.empty:
     last_c_pop = culp_pop.iloc[-1]
     prev_c_pop = culp_pop.iloc[-2]
     c_pop_2025 = last_c_pop + (last_c_pop - prev_c_pop)
     culp_pop.loc[pd.Timestamp('2025-12-31')] = c_pop_2025
 
-culpeper_clean = culpeper_adp[~culpeper_adp.index.year.isin([2020, 2021])]
-culpeper_forecast, culp_fut_pop = fit_forecast(culpeper_clean, culp_pop, "Culpeper_Total")
+# Forecast Culpeper-in-CVRJ (County 47) using CSV-derived ADP; drop 2020-2021 if desired for stability
+culpeper_in_cvrj_forecast = None
+if not annual_culpeper_in_cvrj.empty and not culp_pop.empty:
+    culp_clean = annual_culpeper_in_cvrj[~annual_culpeper_in_cvrj.index.year.isin([2020, 2021])]
+    if len(culp_clean) >= 3:
+        culpeper_in_cvrj_forecast, culp_fut_pop = fit_forecast(culp_clean, culp_pop, "Culpeper_In_CVRJ")
+
+# Save historical ADP series for capacity visualization (even if forecast fails)
+annual_cvrj_adp.to_csv('forecast_annual_cvrj_adp.csv', header=['ADP'])
+if not annual_culpeper_in_cvrj.empty:
+    annual_culpeper_in_cvrj.to_csv('forecast_annual_culpeper_in_cvrj.csv', header=['ADP'])
 
 # --- 5. Analysis ---
-if cvrj_forecast is not None and culpeper_forecast is not None:
-    years_future = pd.date_range(start='2026-12-31', periods=10, freq='Y')
-    print("\nForecast Results (2026-2035):")
+if cvrj_forecast is not None and culpeper_in_cvrj_forecast is not None:
+    years_future = pd.date_range(start='2026-12-31', periods=10, freq='YE')
+    print("\nForecast Results (2026-2035) — Combined = CVRJ + Culpeper-in-CVRJ (from CSV):")
     res_df = pd.DataFrame({
         'CVRJ_Baseline_NoCulpeper': cvrj_forecast.values,
-        'Culpeper_Total_Demand': culpeper_forecast.values
+        'Culpeper_In_CVRJ': culpeper_in_cvrj_forecast.values
     }, index=years_future)
     
-    # Combined Load = CVRJ (No 47) + Culpeper (Total)
-    res_df['Combined_Load'] = res_df['CVRJ_Baseline_NoCulpeper'] + res_df['Culpeper_Total_Demand']
+    # Combined Load = CVRJ (No 47) + Culpeper inmates actually in CVRJ (County 47 from CSV)
+    res_df['Combined_Load'] = res_df['CVRJ_Baseline_NoCulpeper'] + res_df['Culpeper_In_CVRJ']
     res_df['Capacity'] = 660
     res_df['Over_Capacity'] = res_df['Combined_Load'] > 660
     
     print(res_df)
     
+    res_df.to_csv('forecast_results.csv')
+    
     plt.figure(figsize=(10,6))
     plt.plot(res_df.index, res_df['Combined_Load'], label='Projected Combined Load', marker='o', linewidth=2)
     plt.plot(res_df.index, res_df['CVRJ_Baseline_NoCulpeper'], label='CVRJ Baseline (Excl. Culpeper)', linestyle='--')
-    plt.plot(res_df.index, res_df['Culpeper_Total_Demand'], label='Culpeper Total Demand', linestyle='-')
+    plt.plot(res_df.index, res_df['Culpeper_In_CVRJ'], label='Culpeper in CVRJ (from CSV)', linestyle='-')
     plt.axhline(y=660, color='r', linestyle='-', label='Max Capacity (660)')
     plt.title('CVRJ Capacity Forecast (Recalculated)')
     plt.ylabel('Inmate Population')
