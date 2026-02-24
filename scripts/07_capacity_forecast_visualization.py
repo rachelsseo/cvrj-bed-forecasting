@@ -113,23 +113,27 @@ def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combine
         ymin, ymax = ax.get_ylim()
         y_arrow = ymax * 0.90  # slightly below top
 
+        offset_forecast = pd.DateOffset(years=4)
+        offset_historical = pd.DateOffset(years=8)
+
+
         # Forecast arrow (pointing right from dashed line)
         ax.annotate('Forecast',
-                    xy=(x_forecast, y_arrow),
-                    xytext=(pd.Timestamp('2033-01-01'), y_arrow),
-                    fontsize=FONT_ANNO,
-                    ha='left', va='center',
-                    color='gray',
-                    arrowprops=dict(arrowstyle='<-', color='gray', lw=1.5))
+                   xy=(x_forecast, y_arrow),
+                   xytext=(x_forecast + offset_forecast, y_arrow),
+                   fontsize=20,
+                   ha='left', va='center',
+                   color='black')
+                   #arrowprops=dict(arrowstyle='<-', color='gray', lw=1.5))
 
         # Historical arrow (pointing left toward dashed line)
         ax.annotate('Historical',
                     xy=(x_forecast, y_arrow),
-                    xytext=(pd.Timestamp('2016-01-01'), y_arrow),
-                    fontsize=FONT_ANNO,
+                    xytext=(x_forecast - offset_historical, y_arrow),
+                    fontsize=20,
                     ha='left', va='center',
-                    color='gray',
-                    arrowprops=dict(arrowstyle='<-', color='gray', lw=1.5))
+                    color='black')
+                    #arrowprops=dict(arrowstyle='<-', color='gray', lw=1.5))
 
     ax.set_xlabel('Year', fontsize=FONT_LABEL)
     ax.set_ylabel('Average daily population (beds)', fontsize=FONT_LABEL)
