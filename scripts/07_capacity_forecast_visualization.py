@@ -121,7 +121,7 @@ def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combine
 
     # Label the red line directly
     ax.text(pd.Timestamp('2035-01-01'), MAX_CAPACITY + 5,
-            'Maximum capacity',
+            'Maximum Capacity = 660',
             color='red',
             fontsize=FONT_ANNO,
             ha='right',
@@ -159,7 +159,33 @@ def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combine
                     #arrowprops=dict(arrowstyle='<-', color='gray', lw=1.5))
 
     ax.set_xlabel('Year', fontsize=FONT_LABEL)
-    ax.set_ylabel('Average daily population (beds)', fontsize=FONT_LABEL)
+    ax.set_ylabel('Average Daily Population (Beds)', fontsize=FONT_LABEL)
+    
+    # Direct labels ON the lines at the end of the forecast area (2035)
+    last_year_forecast = years_future[-1]
+    
+    # 1. Orange Combined Line (Above)
+    last_val_combo = vals_combo_plot[-1]
+    ax.text(last_year_forecast - pd.DateOffset(months=3), last_val_combo + 15, 
+            'Combined\n(CVRJ + Culpeper)', 
+            color='darkorange', fontsize=FONT_ANNO, fontweight='bold', 
+            ha='right', va='bottom')
+            
+    # 2. Blue CVRJ Baseline (Above)
+    last_val_cvrj = cvrj_forecast_vals[-1]
+    ax.text(last_year_forecast - pd.DateOffset(months=3), last_val_cvrj + 35, 
+            'CVRJ Baseline', 
+            color='steelblue', fontsize=FONT_ANNO, fontweight='bold', 
+            ha='right', va='bottom')
+            
+    # 3. Green Culpeper-in-CVRJ (Below)
+    if culpeper_forecast_vals is not None:
+        last_val_culp = culpeper_forecast_vals[-1]
+        ax.text(last_year_forecast - pd.DateOffset(months=2), last_val_culp - 75, 
+                'Culpeper-in-CVRJ', 
+                color='green', fontsize=FONT_ANNO, fontweight='bold', 
+                ha='right', va='top')
+                
     ax.tick_params(axis='both', labelsize=FONT_LEGEND)
     ax.set_ylim(0, None)
     ax.set_xlim(pd.Timestamp('2012-01-01'), pd.Timestamp('2036-01-01'))
@@ -187,7 +213,7 @@ def main():
     fig, ax = plt.subplots(figsize=(12, 6))
     plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combined_forecast,
                   annual_culpeper_in_cvrj, culpeper_forecast_vals, combined_se=combined_se, draw_forecast_marker=True)
-    ax.set_title('CVRJ bed need: with vs without Culpeper County (max capacity = 660 beds)', fontsize=FONT_TITLE)
+    ax.set_title('CVRJ Bed Need: With vs Without Culpeper County', fontsize=FONT_TITLE)
     plt.tight_layout()
     out1 = os.path.join(_ROOT, 'visuals', 'capacity_forecast_with_and_without_culpeper.png')
     plt.savefig(out1, dpi=150, bbox_inches='tight')
@@ -198,7 +224,7 @@ def main():
     fig2, ax2 = plt.subplots(figsize=(12, 7))
     plot_capacity(ax2, annual_cvrj_adp, years_future, cvrj_forecast_vals, combined_forecast,
                   annual_culpeper_in_cvrj, culpeper_forecast_vals, combined_se=combined_se, draw_forecast_marker=True)
-    ax2.set_title('CVRJ bed need: with vs without Culpeper County (max capacity = 660 beds)', fontsize=FONT_TITLE)
+    ax2.set_title('CVRJ Bed Need: With vs Without Culpeper County', fontsize=FONT_TITLE)
 
     methodology = (
         "How the forecasts are created:\n\n"
