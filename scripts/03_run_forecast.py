@@ -51,7 +51,7 @@ else:
     daily_census = pd.Series(0, index=date_range)
 
 # Annual ADP Baseline
-annual_cvrj_adp = daily_census.resample('YE').mean()
+annual_cvrj_adp = daily_census.resample('Y').mean()
 print("CVRJ Baseline Annual ADP (Head):")
 print(annual_cvrj_adp.head())
 
@@ -75,7 +75,7 @@ if not df_culp.empty:
     date_range_c = pd.date_range(start=min_c.normalize(), end=max_c.normalize(), freq='D')
     evt_c = evt_c.groupby('Date')['Change'].sum().sort_index()
     daily_culp = evt_c.reindex(date_range_c, fill_value=0).cumsum()
-    annual_culpeper_in_cvrj = daily_culp.resample('YE').mean()
+    annual_culpeper_in_cvrj = daily_culp.resample('Y').mean()
 else:
     annual_culpeper_in_cvrj = pd.Series(dtype=float)
 print("Culpeper-in-CVRJ (County 47) Annual ADP (Head):")
@@ -137,8 +137,9 @@ def fit_forecast(adp_series, exog_series, name, steps=10):
         
         forecast = results.get_forecast(steps=steps, exog=future_pop.reshape(-1,1))
         forecast_vals = forecast.predicted_mean
+        forecast_se = forecast.se_mean
         
-        return forecast_vals, future_pop
+        return forecast_vals, future_pop, forecast_se
         
     except Exception as e:
         print(f"Error modeling {name}: {e}")
@@ -151,7 +152,7 @@ if not total_cvrj_pop.empty:
     pop_2025 = last_pop + (last_pop - prev_pop)
     total_cvrj_pop.loc[pd.Timestamp('2025-12-31')] = pop_2025
     
-cvrj_forecast, cvrj_fut_pop = fit_forecast(annual_cvrj_adp, total_cvrj_pop, "CVRJ_Baseline")
+cvrj_forecast, cvrj_fut_pop, cvrj_se = fit_forecast(annual_cvrj_adp, total_cvrj_pop, "CVRJ_Baseline")
 
 # Run Culpeper-in-CVRJ Model (County 47 from CSV — realistic CVRJ add-on)
 if not culp_pop.empty:
@@ -162,10 +163,11 @@ if not culp_pop.empty:
 
 # Forecast Culpeper-in-CVRJ (County 47) using CSV-derived ADP; drop 2020-2021 if desired for stability
 culpeper_in_cvrj_forecast = None
+culpeper_se = None
 if not annual_culpeper_in_cvrj.empty and not culp_pop.empty:
     culp_clean = annual_culpeper_in_cvrj[~annual_culpeper_in_cvrj.index.year.isin([2020, 2021])]
     if len(culp_clean) >= 3:
-        culpeper_in_cvrj_forecast, culp_fut_pop = fit_forecast(culp_clean, culp_pop, "Culpeper_In_CVRJ")
+        culpeper_in_cvrj_forecast, culp_fut_pop, culpeper_se = fit_forecast(culp_clean, culp_pop, "Culpeper_In_CVRJ")
 
 # Save historical ADP series for capacity visualization (even if forecast fails)
 annual_cvrj_adp.to_csv('../data/outputs/forecast_annual_cvrj_adp.csv', header=['ADP'])
@@ -174,19 +176,23 @@ if not annual_culpeper_in_cvrj.empty:
 
 # --- 5. Analysis ---
 if cvrj_forecast is not None and culpeper_in_cvrj_forecast is not None:
-    years_future = pd.date_range(start='2026-12-31', periods=10, freq='YE')
+    years_future = pd.date_range(start='2026-12-31', periods=10, freq='Y')
     print("\nForecast Results (2026-2035) — Combined = CVRJ + Culpeper-in-CVRJ (from CSV):")
     res_df = pd.DataFrame({
         'CVRJ_Baseline_NoCulpeper': cvrj_forecast.values,
-        'Culpeper_In_CVRJ': culpeper_in_cvrj_forecast.values
+        'CVRJ_SE': cvrj_se.values,
+        'Culpeper_In_CVRJ': culpeper_in_cvrj_forecast.values,
+        'Culpeper_SE': culpeper_se.values if culpeper_se is not None else 0
     }, index=years_future)
     
     # Combined Load = CVRJ (No 47) + Culpeper inmates actually in CVRJ (County 47 from CSV)
     res_df['Combined_Load'] = res_df['CVRJ_Baseline_NoCulpeper'] + res_df['Culpeper_In_CVRJ']
+    # Combined SE (assuming independent errors) = sqrt(SE1^2 + SE2^2)
+    res_df['Combined_SE'] = np.sqrt(res_df['CVRJ_SE']**2 + res_df['Culpeper_SE']**2)
     res_df['Capacity'] = 660
     res_df['Over_Capacity'] = res_df['Combined_Load'] > 660
     
-    print(res_df)
+    print(res_df[['Combined_Load', 'Combined_SE']])
     
     res_df.to_csv('../data/outputs/forecast_results.csv')
     
@@ -199,5 +205,5 @@ if cvrj_forecast is not None and culpeper_in_cvrj_forecast is not None:
     plt.ylabel('Inmate Population')
     plt.legend()
     plt.grid(True)
-    plt.savefig('visuals/forecast_plot_revised.png')
-    print("\nPlot saved to visuals/forecast_plot_revised.png")
+    plt.savefig('../visuals/forecast_plot_revised.png')
+    print("\nPlot saved to ../visuals/forecast_plot_revised.png")

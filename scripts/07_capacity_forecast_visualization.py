@@ -57,7 +57,7 @@ def build_combined_historical(annual_cvrj_adp, annual_culpeper_in_cvrj):
 
 
 def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combined_forecast,
-                  annual_culpeper_in_cvrj, culpeper_forecast_vals, draw_forecast_marker=True):
+                  annual_culpeper_in_cvrj, culpeper_forecast_vals, combined_se=None, draw_forecast_marker=True):
     """Draw capacity plot: CVRJ baseline full; Culpeper-only full; CVRJ+Culpeper only on forecast side."""
     hist_years = annual_cvrj_adp.index
     all_years = list(hist_years) + list(years_future)
@@ -103,6 +103,16 @@ def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combine
             's-', color='darkorange',
             markersize=5, linewidth=2,
             label='CVRJ + Culpeper (combined)')
+
+    # Plot Uncertainty band (95% CI roughly corresponds to 1.96 * SE)
+    if combined_se is not None:
+        se_trim = combined_se[years_future >= start_date]
+        se_combo_plot = [0.0] + list(se_trim) # 0 variance at the anchor point
+        upper_bound = np.array(vals_combo_plot) + 1.96 * np.array(se_combo_plot)
+        lower_bound = np.array(vals_combo_plot) - 1.96 * np.array(se_combo_plot)
+        
+        ax.fill_between(years_combo_plot, lower_bound, upper_bound, 
+                        color='darkorange', alpha=0.15, label='95% Confidence Interval')
 
     # Maximum capacity line
     # Maximum capacity line
@@ -170,12 +180,13 @@ def main():
     years_future = res_df.index
     cvrj_forecast_vals = res_df['CVRJ_Baseline_NoCulpeper'].values
     combined_forecast = res_df['Combined_Load'].values
+    combined_se = res_df['Combined_SE'].values if 'Combined_SE' in res_df.columns else None
     culpeper_forecast_vals = res_df['Culpeper_In_CVRJ'].values if 'Culpeper_In_CVRJ' in res_df.columns else None
 
     # --- Figure 1: Capacity with vs without Culpeper + 660 line ---
     fig, ax = plt.subplots(figsize=(12, 6))
     plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combined_forecast,
-                  annual_culpeper_in_cvrj, culpeper_forecast_vals, draw_forecast_marker=True)
+                  annual_culpeper_in_cvrj, culpeper_forecast_vals, combined_se=combined_se, draw_forecast_marker=True)
     ax.set_title('CVRJ bed need: with vs without Culpeper County (max capacity = 660 beds)', fontsize=FONT_TITLE)
     plt.tight_layout()
     out1 = os.path.join(_ROOT, 'visuals', 'capacity_forecast_with_and_without_culpeper.png')
@@ -186,7 +197,7 @@ def main():
     # --- Figure 2: Same plot + methodology text ---
     fig2, ax2 = plt.subplots(figsize=(12, 7))
     plot_capacity(ax2, annual_cvrj_adp, years_future, cvrj_forecast_vals, combined_forecast,
-                  annual_culpeper_in_cvrj, culpeper_forecast_vals, draw_forecast_marker=True)
+                  annual_culpeper_in_cvrj, culpeper_forecast_vals, combined_se=combined_se, draw_forecast_marker=True)
     ax2.set_title('CVRJ bed need: with vs without Culpeper County (max capacity = 660 beds)', fontsize=FONT_TITLE)
 
     methodology = (
