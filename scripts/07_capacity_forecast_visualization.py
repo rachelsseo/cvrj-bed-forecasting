@@ -80,13 +80,26 @@ def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combine
         ax.plot(all_years, all_vals_culp, '^-', color='green', markersize=4, linewidth=1.2,
                 label='Culpeper (in CVRJ)')
 
-    # Ensure orange line starts exactly at forecast start year
+    # Ensure orange line starts exactly at forecast start year (branching from combined historical)
     start_date = pd.Timestamp(f'{FORECAST_START_YEAR}-01-01')
+
+    last_hist_year = hist_years[-1]
+    last_hist_cvrj = annual_cvrj_adp.loc[last_hist_year]
+    
+    if annual_culpeper_in_cvrj is not None and not annual_culpeper_in_cvrj.empty and last_hist_year in annual_culpeper_in_cvrj.index:
+        last_hist_culp = annual_culpeper_in_cvrj.loc[last_hist_year]
+    else:
+        last_hist_culp = 0.0
+        
+    last_hist_combined = last_hist_cvrj + last_hist_culp
 
     years_future_trim = years_future[years_future >= start_date]
     combined_trim = combined_forecast[years_future >= start_date]
 
-    ax.plot(years_future_trim, combined_trim,
+    years_combo_plot = [last_hist_year] + list(years_future_trim)
+    vals_combo_plot = [last_hist_combined] + list(combined_trim)
+
+    ax.plot(years_combo_plot, vals_combo_plot,
             's-', color='darkorange',
             markersize=5, linewidth=2,
             label='CVRJ + Culpeper (combined)')
