@@ -62,7 +62,7 @@ def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combine
     """Draw capacity plot: CVRJ baseline full; Culpeper-only full; CVRJ+Culpeper only on forecast side."""
     # Trim historical portion to start at 2016
     hist_years_full = annual_cvrj_adp.index
-    cutoff = pd.Timestamp('2016-01-01')
+    cutoff = pd.Timestamp('2015-12-31')
     hist_years = hist_years_full[hist_years_full >= cutoff]
     annual_cvrj_adp = annual_cvrj_adp.loc[hist_years]
     if annual_culpeper_in_cvrj is not None and not annual_culpeper_in_cvrj.empty:

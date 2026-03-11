@@ -120,7 +120,7 @@ def plot_jurisdiction(jur, cvrj_adp, cvrj_forecast, culp_hist_adp, culp_forecast
         return
 
     # Align historical to start at 2016
-    cutoff = pd.Timestamp("2016-01-01")
+    cutoff = pd.Timestamp("2015-12-31")
     hist_years_full = cvrj_adp.index
     hist_years = hist_years_full[hist_years_full >= cutoff]
 
