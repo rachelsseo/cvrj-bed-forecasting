@@ -20,10 +20,10 @@ FORECAST_ADP_CSV = os.path.join(_ROOT, "data", "outputs", "forecast_annual_cvrj_
 FORECAST_RESULTS_CSV = os.path.join(_ROOT, "data", "outputs", "forecast_results.csv")
 CULPEPER_IN_CVRJ_CSV = os.path.join(_ROOT, "data", "outputs", "forecast_annual_culpeper_in_cvrj.csv")
 FORECAST_START_YEAR = 2026
-FONT_TITLE = 16
-FONT_LABEL = 13
-FONT_LEGEND = 11
-FONT_ANNO = 12
+FONT_TITLE = 18
+FONT_LABEL = 15
+FONT_LEGEND = 12
+FONT_ANNO = 14
 
 
 def load_forecast_data():
@@ -57,9 +57,17 @@ def build_combined_historical(annual_cvrj_adp, annual_culpeper_in_cvrj):
 
 
 def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combined_forecast,
-                  annual_culpeper_in_cvrj, culpeper_forecast_vals, combined_se=None, draw_forecast_marker=True):
+                  annual_culpeper_in_cvrj, culpeper_forecast_vals, combined_se=None,
+                  draw_forecast_marker=True, show_legend=True):
     """Draw capacity plot: CVRJ baseline full; Culpeper-only full; CVRJ+Culpeper only on forecast side."""
-    hist_years = annual_cvrj_adp.index
+    # Trim historical portion to start at 2016
+    hist_years_full = annual_cvrj_adp.index
+    cutoff = pd.Timestamp('2016-01-01')
+    hist_years = hist_years_full[hist_years_full >= cutoff]
+    annual_cvrj_adp = annual_cvrj_adp.loc[hist_years]
+    if annual_culpeper_in_cvrj is not None and not annual_culpeper_in_cvrj.empty:
+        annual_culpeper_in_cvrj = annual_culpeper_in_cvrj.reindex(hist_years).fillna(0.0)
+
     all_years = list(hist_years) + list(years_future)
     x_forecast = pd.Timestamp(f'{FORECAST_START_YEAR}-01-01')
 
@@ -104,17 +112,15 @@ def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combine
             markersize=5, linewidth=2,
             label='CVRJ + Culpeper (combined)')
 
-    # Plot Uncertainty band (95% CI roughly corresponds to 1.96 * SE)
+    # One-sigma band around the combined forecast (optional)
     if combined_se is not None:
         se_trim = combined_se[years_future >= start_date]
-        se_combo_plot = [0.0] + list(se_trim) # 0 variance at the anchor point
-        upper_bound = np.array(vals_combo_plot) + 1.96 * np.array(se_combo_plot)
-        lower_bound = np.array(vals_combo_plot) - 1.96 * np.array(se_combo_plot)
-        
-        ax.fill_between(years_combo_plot, lower_bound, upper_bound, 
-                        color='darkorange', alpha=0.15, label='95% Confidence Interval')
+        se_combo_plot = [0.0] + list(se_trim)  # 0 variance at the anchor point
+        upper_bound = np.array(vals_combo_plot) + np.array(se_combo_plot)
+        lower_bound = np.array(vals_combo_plot) - np.array(se_combo_plot)
+        ax.fill_between(years_combo_plot, lower_bound, upper_bound,
+                        color='darkorange', alpha=0.15)
 
-    # Maximum capacity line
     # Maximum capacity line
     ax.axhline(y=MAX_CAPACITY, color='red', linestyle='-', linewidth=2,
             label='Maximum Capacity (660 beds)')
@@ -132,9 +138,9 @@ def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combine
         ymin, ymax = ax.get_ylim()
         ax.axvspan(x_forecast, all_years[-1], alpha=0.08, color='gray', zorder=0)
         ax.set_ylim(ymin, ymax)
-                # Get top of plot
-        ymin, ymax = ax.get_ylim()
-        y_arrow = ymax * 0.90  # slightly below top
+        # Place the \"Historical\" / \"Forecast\" labels well away from the capacity line
+        # so they don't overlap the red 660-bed line.
+        y_arrow = MAX_CAPACITY + 50  # clearly below the capacity line
 
         offset_forecast = pd.DateOffset(years=4)
         offset_historical = pd.DateOffset(years=8)
@@ -188,10 +194,12 @@ def plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combine
                 
     ax.tick_params(axis='both', labelsize=FONT_LEGEND)
     ax.set_ylim(0, None)
-    ax.set_xlim(pd.Timestamp('2012-01-01'), pd.Timestamp('2036-01-01'))
+    ax.set_xlim(pd.Timestamp('2016-01-01'), pd.Timestamp('2036-01-01'))
     ax.grid(True, alpha=0.5)
-    # Legend lower so it doesn't cover the max capacity line
-    ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.87), fontsize=FONT_LEGEND, framealpha=0.95)
+    # Optional legend (can be disabled for cleaner main figure)
+    if show_legend:
+        ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.87),
+                  fontsize=FONT_LEGEND, framealpha=0.95)
 
 
 def main():
@@ -209,11 +217,11 @@ def main():
     combined_se = res_df['Combined_SE'].values if 'Combined_SE' in res_df.columns else None
     culpeper_forecast_vals = res_df['Culpeper_In_CVRJ'].values if 'Culpeper_In_CVRJ' in res_df.columns else None
 
-    # --- Figure 1: Capacity with vs without Culpeper + 660 line ---
+    # --- Figure 1: Capacity with vs without Culpeper + 660 line (main visual, no title/legend) ---
     fig, ax = plt.subplots(figsize=(12, 6))
     plot_capacity(ax, annual_cvrj_adp, years_future, cvrj_forecast_vals, combined_forecast,
-                  annual_culpeper_in_cvrj, culpeper_forecast_vals, combined_se=combined_se, draw_forecast_marker=True)
-    ax.set_title('CVRJ Bed Need: With vs Without Culpeper County', fontsize=FONT_TITLE)
+                  annual_culpeper_in_cvrj, culpeper_forecast_vals,
+                  combined_se=combined_se, draw_forecast_marker=True, show_legend=False)
     plt.tight_layout()
     out1 = os.path.join(_ROOT, 'visuals', 'capacity_forecast_with_and_without_culpeper.png')
     plt.savefig(out1, dpi=150, bbox_inches='tight')
