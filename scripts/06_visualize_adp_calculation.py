@@ -83,6 +83,8 @@ def main():
     daily_census, annual_adp = compute_daily_census_and_adp(df_baseline, 2030)
     print("Computing Culpeper-from-CSV (County Code 47) using same method...")
     daily_culp, annual_adp_culp = compute_daily_census_and_adp(df_culpeper, 2030)
+    print("Computing daily census (all counties incl. County 47) for adp_daily_and_annual figure...")
+    daily_census_all, _ = compute_daily_census_and_adp(df, 2030)
 
     # Hardcoded Culpeper ADP used in run_forecast.py (for comparison)
     culpeper_hardcoded = {
@@ -150,10 +152,10 @@ def main():
     print(f"Saved: {out_path}")
     plt.close()
 
-    # ---- Second figure: Daily census (trimmed 2013–2025) + moving averages ----
+    # ---- Second figure: Daily census (trimmed 2013–2025) + moving averages (all counties incl. 47) ----
     start_cut = pd.Timestamp('2013-01-01')
     end_cut = pd.Timestamp('2025-12-31')  # end before drop-off at 2026
-    full_daily = daily_census.loc[(daily_census.index >= start_cut) & (daily_census.index <= end_cut)]
+    full_daily = daily_census_all.loc[(daily_census_all.index >= start_cut) & (daily_census_all.index <= end_cut)]
 
     fig2, ax = plt.subplots(figsize=(12, 5))
     ax.fill_between(full_daily.index, full_daily.values, alpha=0.3, color='steelblue')
@@ -169,8 +171,8 @@ def main():
 
     ax.set_xlabel('Date', fontsize = 14)
     ax.set_ylabel('Daily census (count)', fontsize = 14)
-    ax.set_title('Daily Census and Moving Average from De-Identified Booking Data', fontsize = 20)
-    ax.legend(loc='upper right', fontsize=11)
+    ax.set_title('Daily Census and Moving Average', fontsize = 20)
+    ax.legend(loc='lower right', fontsize=11)
     ax.set_ylim(0, None)
     ax.grid(True, alpha=0.5)
     #ax.text(0.02, 0.02, 'Recommendation: 365-day MA best for capacity planning (smooth trend).',

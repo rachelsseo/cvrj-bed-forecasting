@@ -5,9 +5,11 @@ import matplotlib.pyplot as plt
 import os
 import random
 
-# Define paths
-DATA_DIR = "../data/raw"
-CVRJ_FILE = "../data/processed/cvrj_dataset_v2.csv"
+# Define paths (rooted at project, not CWD)
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_SCRIPT_DIR)
+DATA_DIR = os.path.join(_ROOT, "data", "raw")
+CVRJ_FILE = os.path.join(_ROOT, "data", "processed", "cvrj_dataset_v2.csv")
 
 def main():
     print("Loading CVRJ Data...")

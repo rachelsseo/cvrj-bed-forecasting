@@ -7,9 +7,11 @@ from datetime import datetime
 import glob
 import os
 
-# Define paths
-DATA_DIR = "../data/raw"
-CVRJ_FILE = "../data/processed/cvrj_dataset_v2.csv"
+# Define paths (rooted at project, not CWD)
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_SCRIPT_DIR)
+DATA_DIR = os.path.join(_ROOT, "data", "raw")
+CVRJ_FILE = os.path.join(_ROOT, "data", "processed", "cvrj_dataset_v2.csv")
 
 # --- 1. Load and Process CVRJ Data ---
 print("Loading CVRJ Data...")
@@ -21,14 +23,11 @@ df_cvrj['Release Date'] = pd.to_datetime(df_cvrj['Release Date'], errors='coerce
 df_cvrj = df_cvrj[df_cvrj['Book Date'].dt.year >= 2012]
 print(f"Total CVRJ rows: {len(df_cvrj)}")
 
-# EXCLUDE CULPEPER (Code 47) from Baseline
-# "The image with less [Culpeper Jail] shows inmates just in Culpeper... 
-# data set with 'any jail' includes cvrj inmates...
-# So to forecast Total Load = Baseline (No Culpeper) + Total Culpeper (Any Jail)."
-df_cvrj_baseline = df_cvrj[df_cvrj['County Code'] != 47]
-print(f"CVRJ Baseline (No Culpeper) rows: {len(df_cvrj_baseline)}")
+# Blue line: CVRJ from csv INCLUDING County 47 (all counties).
+df_cvrj_baseline = df_cvrj.copy()
+print(f"CVRJ (incl. County 47, for blue line) rows: {len(df_cvrj_baseline)}")
 
-# Calculate Daily Census (ADP) for Baseline (vectorized)
+# Calculate Daily Census (ADP) for CVRJ incl. 47 (vectorized)
 df_b = df_cvrj_baseline.dropna(subset=['Book Date']).copy()
 max_date = df_b['Release Date'].max()
 if pd.isnull(max_date) or max_date.year > 2030:
@@ -81,7 +80,31 @@ else:
 print("Culpeper-in-CVRJ (County 47) Annual ADP (Head):")
 print(annual_culpeper_in_cvrj.head() if not annual_culpeper_in_cvrj.empty else "No data")
 
-# --- 2. Load Population Data (CVRJ Excl Culpeper) ---
+# --- 1c. CVRJ EXCL. 47 (for combined orange line = this + Culpeper all jails) ---
+df_cvrj_excl47 = df_cvrj[df_cvrj['County Code'] != 47]
+df_b_excl = df_cvrj_excl47.dropna(subset=['Book Date']).copy()
+if not df_b_excl.empty:
+    max_date_excl = df_b_excl['Release Date'].max()
+    if pd.isnull(max_date_excl) or max_date_excl.year > 2030:
+        max_date_excl = pd.Timestamp('2025-12-31')
+    min_date_excl = df_b_excl['Book Date'].min()
+    df_b_excl['Release Date'] = df_b_excl['Release Date'].fillna(max_date_excl)
+    df_b_excl['start_d'] = df_b_excl['Book Date'].dt.normalize()
+    df_b_excl['end_d'] = df_b_excl['Release Date'].dt.normalize() + pd.Timedelta(days=1)
+    df_b_excl = df_b_excl[df_b_excl['end_d'] > df_b_excl['start_d']]
+    enter_excl = df_b_excl[['start_d']].rename(columns={'start_d': 'Date'})
+    enter_excl['Change'] = 1
+    leave_excl = df_b_excl[['end_d']].rename(columns={'end_d': 'Date'})
+    leave_excl['Change'] = -1
+    evt_excl = pd.concat([enter_excl, leave_excl], ignore_index=True)
+    date_range_excl = pd.date_range(start=min_date_excl.normalize(), end=max_date_excl.normalize(), freq='D')
+    evt_excl = evt_excl.groupby('Date')['Change'].sum().sort_index()
+    daily_census_excl = evt_excl.reindex(date_range_excl, fill_value=0).cumsum()
+    annual_cvrj_excl47 = daily_census_excl.resample('Y').mean()
+else:
+    annual_cvrj_excl47 = pd.Series(dtype=float)
+
+# --- 2. Load Population Data (5 counties, excl. Culpeper) ---
 print("\nLoading Population Data...")
 counties = ['Fluvanna', 'Greene', 'Louisa', 'Madison', 'Orange']
 pop_data = {}
@@ -154,6 +177,13 @@ if not total_cvrj_pop.empty:
     
 cvrj_forecast, cvrj_fut_pop, cvrj_se = fit_forecast(annual_cvrj_adp, total_cvrj_pop, "CVRJ_Baseline")
 
+# CVRJ excl. 47 forecast (for combined orange line = this + Culpeper all jails)
+cvrj_excl47_forecast, cvrj_excl47_se = None, None
+if not annual_cvrj_excl47.empty and not total_cvrj_pop.empty:
+    out_excl = fit_forecast(annual_cvrj_excl47, total_cvrj_pop, "CVRJ_Excl47")
+    if out_excl and len(out_excl) >= 3 and out_excl[0] is not None:
+        cvrj_excl47_forecast, cvrj_excl47_se = out_excl[0], out_excl[2]
+
 # Run Culpeper-in-CVRJ Model (County 47 from CSV — realistic CVRJ add-on)
 if not culp_pop.empty:
     last_c_pop = culp_pop.iloc[-1]
@@ -169,10 +199,16 @@ if not annual_culpeper_in_cvrj.empty and not culp_pop.empty:
     if len(culp_clean) >= 3:
         culpeper_in_cvrj_forecast, culp_fut_pop, culpeper_se = fit_forecast(culp_clean, culp_pop, "Culpeper_In_CVRJ")
 
+# Ensure outputs directory exists
+OUTPUT_DIR = os.path.join(_ROOT, "data", "outputs")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 # Save historical ADP series for capacity visualization (even if forecast fails)
-annual_cvrj_adp.to_csv('../data/outputs/forecast_annual_cvrj_adp.csv', header=['ADP'])
+annual_cvrj_adp.to_csv(os.path.join(OUTPUT_DIR, 'forecast_annual_cvrj_adp.csv'), header=['ADP'])
+if not annual_cvrj_excl47.empty:
+    annual_cvrj_excl47.to_csv(os.path.join(OUTPUT_DIR, 'forecast_annual_cvrj_excl47.csv'), header=['ADP'])
 if not annual_culpeper_in_cvrj.empty:
-    annual_culpeper_in_cvrj.to_csv('../data/outputs/forecast_annual_culpeper_in_cvrj.csv', header=['ADP'])
+    annual_culpeper_in_cvrj.to_csv(os.path.join(OUTPUT_DIR, 'forecast_annual_culpeper_in_cvrj.csv'), header=['ADP'])
 
 # --- 5. Analysis ---
 if cvrj_forecast is not None and culpeper_in_cvrj_forecast is not None:
@@ -184,17 +220,18 @@ if cvrj_forecast is not None and culpeper_in_cvrj_forecast is not None:
         'Culpeper_In_CVRJ': culpeper_in_cvrj_forecast.values,
         'Culpeper_SE': culpeper_se.values if culpeper_se is not None else 0
     }, index=years_future)
-    
-    # Combined Load = CVRJ (No 47) + Culpeper inmates actually in CVRJ (County 47 from CSV)
+    if cvrj_excl47_forecast is not None and cvrj_excl47_se is not None:
+        res_df['CVRJ_Excl47_Forecast'] = cvrj_excl47_forecast.values
+        res_df['CVRJ_Excl47_SE'] = cvrj_excl47_se.values
+    # Combined Load (for reference; viz uses CVRJ_Excl47 + Culpeper all jails)
     res_df['Combined_Load'] = res_df['CVRJ_Baseline_NoCulpeper'] + res_df['Culpeper_In_CVRJ']
-    # Combined SE (assuming independent errors) = sqrt(SE1^2 + SE2^2)
     res_df['Combined_SE'] = np.sqrt(res_df['CVRJ_SE']**2 + res_df['Culpeper_SE']**2)
     res_df['Capacity'] = 660
     res_df['Over_Capacity'] = res_df['Combined_Load'] > 660
     
     print(res_df[['Combined_Load', 'Combined_SE']])
     
-    res_df.to_csv('../data/outputs/forecast_results.csv')
+    res_df.to_csv(os.path.join(OUTPUT_DIR, 'forecast_results.csv'))
     
     plt.figure(figsize=(10,6))
     plt.plot(res_df.index, res_df['Combined_Load'], label='Projected Combined Load', marker='o', linewidth=2)
@@ -205,5 +242,8 @@ if cvrj_forecast is not None and culpeper_in_cvrj_forecast is not None:
     plt.ylabel('Inmate Population')
     plt.legend()
     plt.grid(True)
-    plt.savefig('../visuals/forecast_plot_revised.png')
-    print("\nPlot saved to ../visuals/forecast_plot_revised.png")
+    visuals_dir = os.path.join(_ROOT, 'visuals')
+    os.makedirs(visuals_dir, exist_ok=True)
+    out_plot = os.path.join(visuals_dir, 'forecast_plot_revised.png')
+    plt.savefig(out_plot)
+    print(f"\nPlot saved to {out_plot}")
